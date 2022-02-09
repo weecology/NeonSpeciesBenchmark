@@ -7,14 +7,9 @@ import numpy as np
 import os
 import pandas as pd
 from pytorch_lightning import LightningDataModule
-from src import generate
-from src import CHM
-from src import augmentation
-from src import megaplot
-from src.models import dead
-from src.utils import *
 from shapely.geometry import Point
-import torch
+from src import CHM
+from src import utils
 from torch.utils.data import Dataset
         
 def filter_data(path, config):
@@ -84,6 +79,9 @@ def filter_data(path, config):
     #There are a couple NEON plots within the OSBS megaplot, make sure they are removed
     shp = shp[~shp.plotID.isin(["OSBS_026","OSBS_029","OSBS_039","OSBS_027","OSBS_036"])]
 
+    #subset columns
+    shp = shp[["geometry","individualID","taxonID","eventID","pointID","plotID","siteID","height","utmZone","itcEasting","itcNorthing","canopyPosition","stemDiameter"]]
+    
     return shp
 
 def sample_plots(shp, min_train_samples=5, min_test_samples=3, iteration = 1):
@@ -95,7 +93,7 @@ def sample_plots(shp, min_train_samples=5, min_test_samples=3, iteration = 1):
         iteration: a dummy parameter to make dask submission unique
     """
     #split by plot level
-    plotIDs = list(shp[shp.siteID.isin(["OSBS","JERC","DSNY","TALL","LENO","DELA"])].plotID.unique())
+    plotIDs = shp.plotID.unique()
     if len(plotIDs) == 0:
         test = shp[shp.plotID == shp.plotID.unique()[0]]
         train = shp[shp.plotID == shp.plotID.unique()[1]]
@@ -119,11 +117,8 @@ def sample_plots(shp, min_train_samples=5, min_test_samples=3, iteration = 1):
     
     #remove fixed boxes from test
     test = test.groupby("taxonID").filter(lambda x: x.shape[0] >= min_test_samples)
-    train_keep = train[train.siteID.isin(["OSBS","JERC","DSNY","TALL","LENO","DELA"])].groupby("taxonID").filter(lambda x: x.shape[0] >= min_train_samples)
-    train = train[train.taxonID.isin(train_keep.taxonID.unique())]
     train = train[train.taxonID.isin(test.taxonID)]    
     test = test[test.taxonID.isin(train.taxonID)]
-    test = test.loc[~test["box_id"].astype(str).str.contains("fixed").fillna(False)]
     
     return train, test
     
@@ -187,72 +182,6 @@ def train_test_split(shp, config, client = None):
     train["point_id"] = train.index.values
     
     return train, test
-
-#Dataset class
-class TreeDataset(Dataset):
-    """A csv file with a path to image crop and label
-    Args:
-       csv_file: path to csv file with image_path and label
-    """
-    def __init__(self, csv_file, config=None, train=True, HSI=True, metadata=False):
-        self.annotations = pd.read_csv(csv_file)
-        self.train = train
-        self.HSI = HSI
-        self.metadata = metadata
-        self.config = config 
-        
-        self.image_size = config["image_size"]
-        
-        #Create augmentor
-        self.transformer = augmentation.train_augmentation(image_size=config["image_size"])
-        
-        #Pin data to memory if desired
-        if self.config["preload_images"]:
-            self.image_dict = {}
-            for index, row in self.annotations.iterrows():
-                self.image_dict[index] = load_image(row["image_path"], image_size=config["image_size"])
-        
-    def __len__(self):
-        #0th based index
-        return self.annotations.shape[0]
-        
-    def __getitem__(self, index):
-        inputs = {}
-        image_path = self.annotations.image_path.loc[index]      
-        individual = os.path.basename(image_path.split(".tif")[0])
-        if self.HSI:
-            if self.config["preload_images"]:
-                inputs["HSI"] = self.image_dict[index]
-            else:
-                image_path = self.annotations.image_path.loc[index]            
-                image = load_image(image_path, image_size=self.image_size)
-                inputs["HSI"] = image
-            
-        if self.metadata:
-            site = self.annotations.site.loc[index]  
-            site = torch.tensor(site, dtype=torch.int)
-            inputs["site"] = site
-        
-        if self.train:
-            label = self.annotations.label.loc[index]
-            label = torch.tensor(label, dtype=torch.long)
-            
-            if self.HSI:
-                inputs["HSI"] = self.transformer(inputs["HSI"])
-
-            return individual, inputs, label
-        else:
-            return individual, inputs
-
-def filter_dead_annotations(crowns, config):
-    """Given a set of annotations, predict whether RGB is dead
-    Args:
-        annotations: must contain xmin, xmax, ymin, ymax and image path fields"""
-    ds = dead.utm_dataset(crowns, config=config)
-    dead_model = dead.AliveDead.load_from_checkpoint(config["dead_model"])    
-    label, score = dead.predict_dead_dataloader(dead_model=dead_model, dataset=ds, config=config)
-    
-    return label, score
     
 class TreeData(LightningDataModule):
     """
@@ -260,7 +189,7 @@ class TreeData(LightningDataModule):
     The module checkpoints the different phases of setup, if one stage failed it will restart from that stage. 
     Use regenerate=True to override this behavior in setup()
     """
-    def __init__(self, csv_file, HSI=True, metadata=False, client = None, config=None, data_dir=None, comet_logger=None, debug=False):
+    def __init__(self, csv_file, client = None, config=None, data_dir=None, debug=False):
         """
         Args:
             config: optional config file to override
@@ -271,9 +200,6 @@ class TreeData(LightningDataModule):
         super().__init__()
         self.ROOT = os.path.dirname(os.path.dirname(__file__))
         self.csv_file = csv_file
-        self.HSI = HSI
-        self.metadata = metadata
-        self.comet_logger = comet_logger
         self.debug = debug 
         
         #default training location
@@ -286,7 +212,7 @@ class TreeData(LightningDataModule):
         self.train_file = "{}/processed/train.csv".format(self.data_dir)
         
         if config is None:
-            self.config = read_config("{}/config.yml".format(self.ROOT))   
+            self.config = utils.read_config("{}/config.yml".format(self.ROOT))   
         else:
             self.config = config
                 
@@ -306,80 +232,17 @@ class TreeData(LightningDataModule):
                 #Convert raw neon data to x,y tree locatins
                 df = filter_data(self.csv_file, config=self.config)
                     
-                #load any megaplot data
-                if not self.config["megaplot_dir"] is None:
-                    megaplot_data = megaplot.load(directory=self.config["megaplot_dir"], config=self.config)
-                    megaplot_data = megaplot_data[megaplot_data.siteID=="OSBS"]
-                    df = pd.concat([megaplot_data, df])
-                
-                if not self.debug:
-                    southeast = df[df.siteID.isin(["OSBS","LENO","TALL","DELA","DSNY","JERC"])]
-                    southeast = southeast.taxonID.unique()
-                    plotIDs_to_keep = df[df.taxonID.isin(southeast)].plotID.unique()
-                    df = df[df.plotID.isin(plotIDs_to_keep)]
-                    
-                if self.comet_logger:
-                    self.comet_logger.experiment.log_parameter("Species before CHM filter",len(df.taxonID.unique()))
-                    self.comet_logger.experiment.log_parameter("Samples before CHM filter",df.shape[0])
-                    
+
                 #Filter points based on LiDAR height
-                df = CHM.filter_CHM(df, CHM_pool=self.config["CHM_pool"],
+                annotations = CHM.filter_CHM(df, CHM_pool=self.config["CHM_pool"],
                                     min_CHM_height=self.config["min_CHM_height"], 
                                     max_CHM_diff=self.config["max_CHM_diff"], 
                                     CHM_height_limit=self.config["CHM_height_limit"])  
                 
-                df.to_file("{}/processed/canopy_points.shp".format(self.data_dir))
-                
-                if self.comet_logger:
-                    self.comet_logger.experiment.log_parameter("Species after CHM filter",len(df.taxonID.unique()))
-                    self.comet_logger.experiment.log_parameter("Samples after CHM filter",df.shape[0])
-                                
-                #Create crown data
-                crowns = generate.points_to_crowns(
-                    field_data="{}/processed/canopy_points.shp".format(self.data_dir),
-                    rgb_dir=self.config["rgb_sensor_pool"],
-                    savedir="{}/interim/".format(self.data_dir),
-                    raw_box_savedir="{}/interim/".format(self.data_dir), 
-                    client=self.client
-                )
-                
-                if self.comet_logger:
-                    self.comet_logger.experiment.log_parameter("Species after crown prediction",len(crowns.taxonID.unique()))
-                    self.comet_logger.experiment.log_parameter("Samples after crown prediction",crowns.shape[0])
-                                
-                crowns.to_file("{}/processed/crowns.shp".format(self.data_dir))
-            else:
-                crowns = gpd.read_file("{}/processed/crowns.shp".format(self.data_dir))
+                annotations.to_file("{}/processed/canopy_points.shp".format(self.data_dir))
             
-            annotations = generate.generate_crops(
-                crowns,
-                savedir=self.config["crop_dir"],
-                sensor_glob=self.config["HSI_sensor_pool"],
-                convert_h5=self.config["convert_h5"],   
-                rgb_glob=self.config["rgb_sensor_pool"],
-                HSI_tif_dir=self.config["HSI_tif_dir"],
-                client=self.client,
-                replace=self.config["replace"]
-            )
-            annotations.to_csv("{}/processed/annotations.csv".format(self.data_dir))
-            
-            if self.comet_logger:
-                self.comet_logger.experiment.log_parameter("Species after crop generation",len(annotations.taxonID.unique()))
-                self.comet_logger.experiment.log_parameter("Samples after crop generation",annotations.shape[0])
-            
-            #Dead filter
-            #dead_label, dead_score = filter_dead_annotations(crowns, config=self.config)
-            #crowns["dead_label"] = dead_label
-            #crowns["dead_score"] = dead_score
-            #individuals_to_keep = crowns[~((dead_label == 1) & (dead_score > self.config["dead_threshold"]))].individual
-            #annotations = annotations[annotations.individualID.isin(individuals_to_keep)]
-            
-            #if self.comet_logger:
-                #self.comet_logger.experiment.log_parameter("Species after dead filtering",len(annotations.taxonID.unique()))
-                #self.comet_logger.experiment.log_parameter("Samples after dead filtering",annotations.shape[0])
-                        
             if self.config["new_train_test_split"]:
-                train_annotations, test_annotations = train_test_split(annotations,config=self.config, client=self.client)   
+                train_annotations, test_annotations = train_test_split(df,config=self.config, client=self.client)   
             else:
                 previous_train = pd.read_csv("{}/processed/train.csv".format(self.data_dir))
                 previous_test = pd.read_csv("{}/processed/test.csv".format(self.data_dir))
@@ -436,74 +299,3 @@ class TreeData(LightningDataModule):
                 len(test_annotations.label.unique()),
                 len(test_annotations.site.unique()))
             )
-             
-            #Create dataloaders
-            self.train_ds = TreeDataset(csv_file = self.train_file, config=self.config, HSI=self.HSI, metadata=self.metadata)
-            self.val_ds = TreeDataset(csv_file = "{}/processed/test.csv".format(self.data_dir), config=self.config, HSI=self.HSI, metadata=self.metadata)
-             
-        else:
-            print("Loading previous run")
-            train_annotations = pd.read_csv("{}/processed/train.csv".format(self.data_dir))
-            test_annotations = pd.read_csv("{}/processed/test.csv".format(self.data_dir))
-            
-            #Store class labels
-            unique_species_labels = np.concatenate([train_annotations.taxonID.unique(), test_annotations.taxonID.unique()])
-            unique_species_labels = np.unique(unique_species_labels)
-            unique_species_labels = np.sort(unique_species_labels)            
-            self.num_classes = len(unique_species_labels)
-            
-            #Taxon to ID dict and the reverse    
-            self.species_label_dict = {}
-            for index, taxonID in enumerate(unique_species_labels):
-                self.species_label_dict[taxonID] = index
-                
-            #Store site labels
-            unique_site_labels = np.concatenate([train_annotations.siteID.unique(), test_annotations.siteID.unique()])
-            unique_site_labels = np.unique(unique_site_labels)
-            
-            self.site_label_dict = {}
-            for index, label in enumerate(unique_site_labels):
-                self.site_label_dict[label] = index
-            self.num_sites = len(self.site_label_dict)                   
-            
-            self.label_to_taxonID = {v: k  for k, v in self.species_label_dict.items()}
-            
-            #Create dataloaders
-            self.train_ds = TreeDataset(csv_file = self.train_file, config=self.config, HSI=self.HSI, metadata=self.metadata)
-            self.val_ds = TreeDataset(csv_file = "{}/processed/test.csv".format(self.data_dir), config=self.config, HSI=self.HSI, metadata=self.metadata)            
-
-    def train_dataloader(self):
-        """Load a training file. The default location is saved during self.setup(), to override this location, set self.train_file before training"""               
-        #get class weights
-        train = pd.read_csv(self.train_file)
-        class_weights = train.label.value_counts().to_dict()     
-            
-        data_weights = []
-        #balance classes
-        for idx in range(len(self.train_ds)):
-            path, image, targets = self.train_ds[idx]
-            label = int(targets.numpy())
-            class_freq = class_weights[label]
-            #under sample majority classes
-            if class_freq > 50:
-                class_freq = 50
-            data_weights.append(1/class_freq)
-            
-        sampler = torch.utils.data.sampler.WeightedRandomSampler(weights = data_weights, num_samples=len(self.train_ds))
-        data_loader = torch.utils.data.DataLoader(
-            self.train_ds,
-            sampler = sampler,
-            batch_size=self.config["batch_size"],
-            num_workers=self.config["workers"])
-        
-        return data_loader
-    
-    def val_dataloader(self):
-        data_loader = torch.utils.data.DataLoader(
-            self.val_ds,
-            batch_size=self.config["batch_size"],
-            shuffle=False,
-            num_workers=self.config["workers"],
-        )
-        
-        return data_loader

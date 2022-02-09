@@ -1,0 +1,39 @@
+#Config
+### Data Generation
+#glob path to sensor data, recursive wildcards allowed
+rgb_sensor_pool: /orange/ewhite/NeonData/*/DP3.30010.001/**/Camera/**/*.tif 
+HSI_sensor_pool: /orange/ewhite/NeonData/*/DP3.30006.001/**/Reflectance/*.h5
+CHM_pool: /orange/ewhite/NeonData/**/CanopyHeightModelGtif/*.tif
+HSI_tif_dir: /orange/idtrees-collab/Hyperspectral_tifs/
+
+#NEON data filtering
+min_stem_diameter: 10
+#Minimum number of test samples per class to be included
+min_train_samples: 7
+min_test_samples: 5
+#Iterations to search for the best train-test split that mantains the largest number of species. Set to 1 for debugging, no files will be written
+iterations: 4000
+#minimum CHM height, leave blank to skip CHM filtering
+min_CHM_height: 1
+#Max difference between measured height and CHM height if CHM > height
+max_CHM_diff: 4
+#Max difference between measured height and CHM height if CHM < height
+CHM_height_limit: 8
+
+#Crop generation, whether to make a new dataset and customize which parts to recreate
+#Make new dataset
+regenerate: False
+convert_h5: True
+#Overwrite existing crops
+replace: True
+#Use existing plotIDs for train/test split
+new_train_test_split: True
+#Directoy to store cropped images from crowns
+crop_dir: /blue/ewhite/b.weinstein/DeepTreeAttention/crops/
+RGB_crop_dir: /blue/ewhite/b.weinstein/DeepTreeAttention/rgb_crops/
+
+# Data loader
+#resized Pixel size of the crowns. Square crops around each pixel of size x are used
+image_size: 11
+preload_images: True
+workers: 0

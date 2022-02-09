@@ -2,7 +2,7 @@
 import geopandas as gpd
 import pandas as pd
 from src import generate
-from src import data
+from src import utils
 from src import start_cluster
 import os
 import shutil
@@ -10,8 +10,7 @@ import shutil
 train = pd.read_csv("data/processed/train.csv")
 test = pd.read_csv("data/processed/test.csv")
 
-config = data.read_config("config.yml")
-#gdf = gpd.read_file("data/processed/crowns.shp")
+config = utils.read_config("config.yml")
 gdf = gpd.read_file("data/processed/canopy_points.shp")
 gdf = gdf[~gdf.individual.str.contains("contrib")]
 gdf = gdf[gdf.siteID=="OSBS"]
