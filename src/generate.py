@@ -245,7 +245,7 @@ def write_crop(row, img_path, savedir, replace=True):
         filename = "{}/{}.tif".format(savedir, row["individual"])
         file_exists = os.path.exists(filename)
         if file_exists:
-            annotation = pd.DataFrame({"image_path":[filename], "taxonID":[row["taxonID"]], "plotID":[row["plotID"]], "individualID":[row["individual"]], "siteID":[row["siteID"]]})            
+            annotation = pd.DataFrame({"image_path":[filename], "taxonID":[row["taxonID"]], "plotID":[row["plotID"]], "individualID":[row["individual"]], "RGB_tile":[row["RGB_tile"]], "siteID":[row["siteID"]],"box_id":[row["box_id"]]})
             return annotation            
         else:
             filename = patches.crop(bounds=row["geometry"].bounds, sensor_path=img_path, savedir=savedir, basename=row["individual"])  
@@ -277,7 +277,6 @@ def generate_crops(gdf, sensor_glob, savedir, rgb_glob, client=None, convert_h5=
     img_pool = [x for x in img_pool if not "point_cloud" in x]
     rgb_pool = [x for x in rgb_pool if not "point_cloud" in x]
      
-    
     #Looking up the rgb -> HSI tile naming is expensive and repetitive. Create a dictionary first.
     gdf["geo_index"] = gdf.geometry.apply(lambda x: bounds_to_geoindex(x.bounds))
     tiles = gdf["geo_index"].unique()

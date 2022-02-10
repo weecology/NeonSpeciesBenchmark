@@ -21,38 +21,34 @@ gdf["RGB_tile"] = None
 client = None
 
 #Fixed boxes 5m from point 
+gdf["points"] = gdf.geometry
 gdf["geometry"] = gdf.buffer(5)
 
 #dummy schema
 gdf["box_id"] = None
 
-annotations = generate.generate_crops(gdf.head(), sensor_glob=config["HSI_sensor_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/HSI/", rgb_glob=config["rgb_sensor_pool"], client=client, convert_h5=True, HSI_tif_dir=config["HSI_tif_dir"])
-generate.generate_crops(gdf.head(), sensor_glob=config["rgb_sensor_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/RGB/", rgb_glob=config["rgb_sensor_pool"], client=client)
-generate.generate_crops(gdf.head(), sensor_glob=config["CHM_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/CHM/", rgb_glob=config["rgb_sensor_pool"], client=client)
+annotations = generate.generate_crops(gdf, sensor_glob=config["HSI_sensor_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/HSI/", rgb_glob=config["rgb_sensor_pool"], client=client, convert_h5=True, HSI_tif_dir=config["HSI_tif_dir"])
+generate.generate_crops(gdf, sensor_glob=config["rgb_sensor_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/RGB/", rgb_glob=config["rgb_sensor_pool"], client=client)
+generate.generate_crops(gdf, sensor_glob=config["CHM_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/CHM/", rgb_glob=config["rgb_sensor_pool"], client=client)
 
-annotations = annotations[["taxonID","site","individual","siteID","eventID","stemDiamet","plantStatu","elevation","canopyPosi","utmZone","itcEasting","itcNorthin","CHM_height","geometry"]]
-annotations.label = annotations.taxonID.astype("category").cat.codes
-train_annotations = annotations[annotations.individualID.isin(train.individualID)]
-test_annotations = annotations[annotations.individualID.isin(test.individualID)]
+gdf["geometry"] = gdf["points"]
+gdf = gdf[["taxonID","site","individual","siteID","eventID","stemDiamet","plantStatu","elevation","canopyPosi","utmZone","itcEasting","itcNorthin","CHM_height","geometry"]]
+gdf["label"] = gdf.taxonID.astype("category").cat.codes
+train_annotations = gdf[gdf.individual.isin(train.individualID)]
+test_annotations = gdf[gdf.individual.isin(test.individualID)]
 
-for i in train_annotations.individualID:
-    try:
-        os.mkdir("/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/{}".format(i))
-    except:
-        pass
+#Image coordinates of the point
+
+for i in train_annotations.individual:
     shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/CHM/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/CHM/{}.tif".format(i,i))
     shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/RGB/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/RGB/{}.tif".format(i,i))
     shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/HSI/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/HSI/{}.tif".format(i,i))
 
-train_annotations.to_file("/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/label.csv")
+train_annotations.to_file("/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/label.shp")
 
-for i in test_annotations.individualID:
-    try:
-        os.mkdir("/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/{}".format(i))
-    except:
-        pass
+for i in test_annotations.individual:
     shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/CHM/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/CHM/{}.tif".format(i,i))
     shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/RGB/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/RGB/{}.tif".format(i,i))
     shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/HSI/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/HSI/{}.tif".format(i,i))
 
-test_annotations.to_file("/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/label.csv")
+test_annotations.to_file("/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/label.shp")
