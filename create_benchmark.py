@@ -30,8 +30,8 @@ annotations = generate.generate_crops(gdf.head(), sensor_glob=config["HSI_sensor
 generate.generate_crops(gdf.head(), sensor_glob=config["rgb_sensor_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/RGB/", rgb_glob=config["rgb_sensor_pool"], client=client)
 generate.generate_crops(gdf.head(), sensor_glob=config["CHM_pool"], savedir="/blue/ewhite/b.weinstein/species_benchmark/CHM/", rgb_glob=config["rgb_sensor_pool"], client=client)
 
-points = points[["taxonID","site","individual","siteID","eventID","stemDiamet","plantStatu","elevation","canopyPosi","utmZone","itcEasting","itcNorthin","CHM_height","geometry"]]
-points.label = points.taxonID.astype("category").cat.codes
+annotations = annotations[["taxonID","site","individual","siteID","eventID","stemDiamet","plantStatu","elevation","canopyPosi","utmZone","itcEasting","itcNorthin","CHM_height","geometry"]]
+annotations.label = annotations.taxonID.astype("category").cat.codes
 train_annotations = annotations[annotations.individualID.isin(train.individualID)]
 test_annotations = annotations[annotations.individualID.isin(test.individualID)]
 
