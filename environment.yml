@@ -4,6 +4,7 @@ channels:
   - conda-forge
 dependencies:
   - torchvision
+  - geopandas
   - pytorch
   - scikit-learn
   - sphinx

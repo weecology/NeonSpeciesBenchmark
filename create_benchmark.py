@@ -40,9 +40,9 @@ for i in train_annotations.individualID:
         os.mkdir("/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/{}".format(i))
     except:
         pass
-    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/CHM/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/{}/{}_CHM.tif".format(i,i))
-    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/RGB/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/{}/{}_RGB.tif".format(i,i))
-    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/HSI/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/{}/{}_HSI.tif".format(i,i))
+    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/CHM/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/CHM/{}.tif".format(i,i))
+    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/RGB/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/RGB/{}.tif".format(i,i))
+    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/HSI/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/HSI/{}.tif".format(i,i))
 
 train_annotations.to_file("/blue/ewhite/b.weinstein/species_benchmark/zenodo/train/label.csv")
 
@@ -51,8 +51,8 @@ for i in test_annotations.individualID:
         os.mkdir("/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/{}".format(i))
     except:
         pass
-    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/CHM/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/{}/{}_CHM.tif".format(i,i))
-    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/RGB/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/{}/{}_RGB.tif".format(i,i))
-    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/HSI/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/{}/{}_HSI.tif".format(i,i))
+    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/CHM/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/CHM/{}.tif".format(i,i))
+    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/RGB/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/RGB/{}.tif".format(i,i))
+    shutil.copy("/blue/ewhite/b.weinstein/species_benchmark/HSI/{}.tif".format(i),"/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/HSI/{}.tif".format(i,i))
 
 test_annotations.to_file("/blue/ewhite/b.weinstein/species_benchmark/zenodo/test/label.csv")
