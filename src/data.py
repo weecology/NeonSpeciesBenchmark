@@ -10,7 +10,6 @@ from pytorch_lightning import LightningDataModule
 from shapely.geometry import Point
 from src import CHM
 from src import utils
-from torch.utils.data import Dataset
         
 def filter_data(path, config):
     """Transform raw NEON data into clean shapefile   
