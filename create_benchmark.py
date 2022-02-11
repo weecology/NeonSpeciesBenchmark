@@ -13,12 +13,11 @@ test = pd.read_csv("data/processed/test.csv")
 config = utils.read_config("config.yml")
 gdf = gpd.read_file("data/processed/canopy_points.shp")
 gdf = gdf[~gdf.individual.str.contains("contrib")]
-gdf = gdf[gdf.siteID=="OSBS"]
 gdf["RGB_tile"] = None
 
 #HSI crops
-#client = start_cluster.start(cpus=100)
-client = None
+client = start_cluster.start(cpus=100)
+#client = None
 
 #Fixed boxes 5m from point 
 gdf["points"] = gdf.geometry
