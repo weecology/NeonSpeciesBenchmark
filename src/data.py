@@ -79,7 +79,7 @@ def filter_data(path, config):
     shp = shp[~shp.plotID.isin(["OSBS_026","OSBS_029","OSBS_039","OSBS_027","OSBS_036"])]
 
     #subset columns
-    shp = shp[["geometry","individualID","taxonID","eventID","pointID","plotID","siteID","height","utmZone","itcEasting","itcNorthing","canopyPosition","stemDiameter"]]
+    shp = shp[["geometry","individualID","taxonID","eventID","pointID","plotID","siteID","height","utmZone","itcEasting","itcNorthing","canopyPosition","stemDiameter","elevation","plantStatus"]]
     
     return shp
 
